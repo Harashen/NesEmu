@@ -242,7 +242,6 @@ u16 Cpu::Immediate(s32 cycles)
 }
 
 /* Load/Store Operations: Load a register from memory or stores the contents of a register to memory. */
-/* ***************************************** LDA Functions ****************************************** */
 void Cpu::LDA_A9() // Immediate, 2 cycles
 {
   A = ram[Immediate(2)];
