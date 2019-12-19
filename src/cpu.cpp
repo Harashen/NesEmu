@@ -78,6 +78,7 @@ void Cpu::SetIRQ(bool value)
   IRQ = value;
 }
 
+/* Addressing modes */
 u8 Cpu::ZeroPage(s32 cycles)
 {
   u8 result = ram[PC + 1] + X;
@@ -1655,8 +1656,7 @@ void Cpu::INY_C8() // Implied, 2 cycles
 
   cycleCount += 2;
   ++PC;
-}
-
+} 
 
 /* Shifts: Shift the bits of either the accumulator or a memory location one bit to the left or right. */
 void Cpu::ASL_0A() // Accumulator, 2 cycles
@@ -1805,7 +1805,6 @@ void Cpu::LSR_56() // Zero page X Indexing, 6 cycles
   ram[position] = memValue;
 }
 
-
 /* Jumps/Calls: Break sequential execution sequence, resuming from a specified address. */
 void Cpu::RTS_60() // Implied, 6 cycles
 {
@@ -1839,8 +1838,7 @@ void Cpu::JSR_20() // Absolute, 6 cycles
   ram[0x101 + --SP] = HH;
 
   PC = position;
-}
-
+} 
 
 /* Branches: Break sequential execution sequence, resuming from a specified address, if a condition is met. The condition involves examining a specific bit in the status register.*/
 void Cpu::BCC_90() // Relative, 2 cycles, +1 if branch succeeds and +2 if a page is crossed
@@ -1993,8 +1991,7 @@ void Cpu::BVS_70() // Relative, 2 cycles, +1 if branch succeeds and +2 if a page
     if ((PC & 0xFF00) != pageBefore)
       cycleCount += 2;
   }
-}
-
+} 
 
 /* Status Register Operations: Set or clear a flag in the status register. */
 void Cpu::CLC_18() // Implied, 2 cycles
@@ -2051,8 +2048,7 @@ void Cpu::SEI_78() // Implied, 2 cycles
 
   cycleCount += 2;
   ++PC;
-}
-
+} 
 
 /* System Functions: Perform rarely used functions. */
 void Cpu::NOP_EA() // Implied, 2 cycles
