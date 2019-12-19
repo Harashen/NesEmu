@@ -18,6 +18,8 @@ private:
   const u8 flagVvalue = 0x40;
   const u8 flagNvalue = 0x80;
 
+  const u8 header     = 16;
+
   /* Memory */
   u8 ram[0x10000];    // 64KB of memory with addresses from 0x0000 to 0xFFFF
 
@@ -40,7 +42,7 @@ private:
   bool V;         // Overflow flag     - bit 6
   bool N;         // Negative flag     - bit 7
 
-  /* interrupts */
+  /* Interrupts */
   bool NMI;       // Non-Maskable interrupt
   bool IRQ;       // Maskable interrupt
 
@@ -48,10 +50,13 @@ public:
   Cpu();
   ~Cpu();
 
-  void NextOpcode          ();
-  void ProcessOpcode       (u8 opcode);
+  void LoadRom             (std::string romFile = "DEFAULT_FILE");
 
-  void Reset               (std::string romFile = "DEFAULT_FILE");
+  void NextOpcode          ();
+  void ProcessOpcode       (u16 opcode);
+
+private:
+  void Reset               ();
 
   void SetStatus           ();
   void SetStatus           (u8 newStatus);

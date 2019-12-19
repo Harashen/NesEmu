@@ -1,8 +1,9 @@
 #include "cpu.hpp"
+#pragma warning(disable:4996) // Disable error when using fopen
 
 Cpu::Cpu()
 {
-
+  Reset();
 }
 
 Cpu::~Cpu()
@@ -10,17 +11,255 @@ Cpu::~Cpu()
 
 }
 
+// ToDo Review this method, done really fast to testing test rom.
+void Cpu::LoadRom(std::string romFile)
+{
+  FILE *pRom = nullptr;
+  u16   romHeader[16]; // ToDo Move to a memory class
+  u16   ppuMemory[0x10000]; // ToDo Move to ppu class. 64KB of memory with addresses from 0x0000 to 0xFFFF]
+
+  pRom = fopen(romFile.c_str(), "rb");
+
+  fread(&romHeader[0], 1, 16, pRom);
+
+  // Load Rom Header
+  s16 prgRomBanks     = romHeader[4]; // Count of 16KB rom banks
+  s16 chrRomBanks     = romHeader[5]; // Count of 8KB chr-rom/vrom banks 
+  s16 romControlByte1 = romHeader[6]; // Bit dependant
+  s16 romControlByte2 = romHeader[7]; //
+  
+  // Get Rom Size
+  fseek(pRom, 0, SEEK_END);
+
+  u32 romSize = ftell(pRom);
+
+  rewind(pRom);
+
+  // Create Rom Memory
+  u8 *pRomMemory = new u8[romSize];
+
+  memset(pRomMemory, 0, sizeof(pRomMemory));
+  memset(ram       , 0, sizeof(ram       ));
+  memset(ppuMemory , 0, sizeof(ppuMemory ));
+
+  cycleCount = 0;
+
+  // Seek Header (16) ???
+  u16 bytesToRead = (prgRomBanks * 0x4000) + (chrRomBanks * 0x2000) + header;
+
+  // Load everything from the Rom file to Rom memory
+  size_t result   = fread(pRomMemory, 1 , bytesToRead, pRom);
+
+  // Load Program Rom
+  memcpy(&ram[0x8000], pRomMemory + header, 0x4000 * 2); // Copy 16KB * 2 banks
+  //memcpy(&ram[0xC000], pRomMemory + header, 0x4000 * 2); // Copy 16KB * 2 banks
+
+  // Load Video Rom 
+  memcpy(&ppuMemory[0x0000], pRomMemory + 0x4000 + header, 0x2000); // Copy 8KB
+  
+  // Generate initial PC value
+  u16 LL = ram[0xFFFC]; // low byte
+  u16 HH = ram[0xFFFD]; // high byte
+  HH <<= 8;
+  u16 initialPC = HH | LL;
+
+  initialPC = 0xC000; // To test nestest rom
+
+  PC = initialPC;
+}
+
 void Cpu::NextOpcode()
 {
-
-}
-
-void Cpu::ProcessOpcode(u8 opcode)
-{
   SetStatus();
+
+  // ToDo Fix all this code, done really fast to testing test rom.
+  u16 opcode = ram[PC] & 0x00FF;
+
+  printf("PC -%X- Opcode: %X\n", PC, opcode);
+
+  ProcessOpcode(opcode);
 }
 
-void Cpu::Reset(std::string romFile)
+void Cpu::ProcessOpcode(u16 opcode)
+{
+  switch (opcode)
+  {
+    /* Load/Store Operations: Load a register from memory or stores the contents of a register to memory. */
+    case 0xA9: LDA_A9(); break; 
+    case 0xAD: LDA_AD(); break; 
+    case 0xBD: LDA_BD(); break; 
+    case 0xB9: LDA_B9(); break; 
+    case 0xA5: LDA_A5(); break; 
+    case 0xB5: LDA_B5(); break; 
+    case 0xA1: LDA_A1(); break; 
+    case 0xB1: LDA_B1(); break; 
+    case 0xA2: LDX_A2(); break; 
+    case 0xAE: LDX_AE(); break; 
+    case 0xBE: LDX_BE(); break; 
+    case 0xA6: LDX_A6(); break; 
+    case 0xB6: LDX_B6(); break; 
+    case 0xA0: LDY_A0(); break; 
+    case 0xAC: LDY_AC(); break; 
+    case 0xBC: LDY_BC(); break; 
+    case 0xA4: LDY_A4(); break; 
+    case 0xB4: LDY_B4(); break; 
+    case 0x8D: STA_8D(); break; 
+    case 0x9D: STA_9D(); break; 
+    case 0x99: STA_99(); break; 
+    case 0x85: STA_85(); break; 
+    case 0x95: STA_95(); break; 
+    case 0x81: STA_81(); break; 
+    case 0x91: STA_91(); break; 
+    case 0x8E: STX_8E(); break; 
+    case 0x86: STX_86(); break; 
+    case 0x96: STX_96(); break; 
+    case 0x8C: STY_8C(); break; 
+    case 0x84: STY_84(); break; 
+    case 0x94: STY_94(); break; 
+
+    /* Register Transfer Operations: Copy contents of X or Y register to the accumulator or copy contents of accumulator to X or Y register. */
+    case 0xAA: TAX_AA(); break;
+    case 0xA8: TAY_A8(); break;
+    case 0x8A: TXA_8A(); break;
+    case 0x98: TYA_98(); break;
+
+    /* Stack Operations: Push or pull the stack or manipulate stack pointer using X register. */
+    case 0x48: PHA_48(); break;
+    case 0x08: PHP_08(); break;
+    case 0x68: PLA_68(); break;
+    case 0x28: PLP_28(); break;
+    case 0xBA: TSX_BA(); break;
+    case 0x9A: TXS_9A(); break;
+
+    /* Logical Operations: Perform logical operations on the accumulator and a value stored in memory. */
+    case 0x29: AND_29(); break;
+    case 0x2D: AND_2D(); break;
+    case 0x3D: AND_3D(); break;
+    case 0x39: AND_39(); break;
+    case 0x25: AND_25(); break;
+    case 0x35: AND_35(); break;
+    case 0x21: AND_21(); break;
+    case 0x31: AND_31(); break;
+    case 0x49: EOR_49(); break;
+    case 0x4D: EOR_4D(); break;
+    case 0x5D: EOR_5D(); break;
+    case 0x59: EOR_59(); break;
+    case 0x45: EOR_45(); break;
+    case 0x55: EOR_55(); break;
+    case 0x41: EOR_41(); break;
+    case 0x51: EOR_51(); break;
+    case 0x09: ORA_09(); break;
+    case 0x0D: ORA_0D(); break;
+    case 0x1D: ORA_1D(); break;
+    case 0x19: ORA_19(); break;
+    case 0x05: ORA_05(); break;
+    case 0x15: ORA_15(); break;
+    case 0x01: ORA_01(); break;
+    case 0x11: ORA_11(); break;
+    case 0x2C: BIT_2C(); break;
+    case 0x24: BIT_24(); break;
+
+    /* Arithmetic Operations: Perform arithmetic operations on registers and memory. */
+    case 0x2A: ROL_2A(); break;
+    case 0x2E: ROL_2E(); break;
+    case 0x3E: ROL_3E(); break;
+    case 0x26: ROL_26(); break;
+    case 0x36: ROL_36(); break;
+    case 0x6A: ROR_6A(); break;
+    case 0x6E: ROR_6E(); break;
+    case 0x7E: ROR_7E(); break;
+    case 0x66: ROR_66(); break;
+    case 0x76: ROR_76(); break;
+    case 0x69: ADC_69(); break;
+    case 0x6D: ADC_6D(); break;
+    case 0x7D: ADC_7D(); break;
+    case 0x79: ADC_79(); break;
+    case 0x65: ADC_65(); break;
+    case 0x75: ADC_75(); break;
+    case 0x61: ADC_61(); break;
+    case 0x71: ADC_71(); break;
+    case 0xC9: CMP_C9(); break;
+    case 0xCD: CMP_CD(); break;
+    case 0xDD: CMP_DD(); break;
+    case 0xD9: CMP_D9(); break;
+    case 0xC5: CMP_C5(); break;
+    case 0xD5: CMP_D5(); break;
+    case 0xC1: CMP_C1(); break;
+    case 0xD1: CMP_D1(); break;
+    case 0xE0: CPX_E0(); break;
+    case 0xEC: CPX_EC(); break;
+    case 0xE4: CPX_E4(); break;
+    case 0xC0: CPY_C0(); break;
+    case 0xCC: CPY_CC(); break;
+    case 0xC4: CPY_C4(); break;
+    case 0xE9: SBC_E9(); break;
+    case 0xED: SBC_ED(); break;
+    case 0xFD: SBC_FD(); break;
+    case 0xF9: SBC_F9(); break;
+    case 0xE5: SBC_E5(); break;   
+    case 0xF5: SBC_F5(); break;
+    case 0xE1: SBC_E1(); break;
+    case 0xF1: SBC_F1(); break;
+
+    /* Increments/Decrements: Increment or decrement the X or Y registers or a value stored in memory. */
+    case 0xCE: DEC_CE(); break;
+    case 0xDE: DEC_DE(); break;
+    case 0xC6: DEC_C6(); break;
+    case 0xD6: DEC_D6(); break;
+    case 0xCA: DEX_CA(); break;
+    case 0x88: DEY_88(); break;
+    case 0xEE: INC_EE(); break;
+    case 0xFE: INC_FE(); break;
+    case 0xE6: INC_E6(); break;
+    case 0xF6: INC_F6(); break;
+    case 0xE8: INX_E8(); break;
+    case 0xC8: INY_C8(); break;
+
+    /* Shifts: Shift the bits of either the accumulator or a memory location one bit to the left or right. */
+    case 0x0A: ASL_0A(); break;
+    case 0x0E: ASL_0E(); break;
+    case 0x1E: ASL_1E(); break;
+    case 0x06: ASL_06(); break;
+    case 0x16: ASL_16(); break;
+    case 0x4A: LSR_4A(); break;
+    case 0x4E: LSR_4E(); break;
+    case 0x5E: LSR_5E(); break;
+    case 0x46: LSR_46(); break;
+    case 0x56: LSR_56(); break;
+
+    /* Jumps/Calls: Break sequential execution sequence, resuming from a specified address. */
+    case 0x60: RTS_60(); break;
+    case 0x4C: JMP_4C(); break;
+    case 0x6C: JMP_6C(); break;
+    case 0x20: JSR_20(); break;
+
+    /* Branches: Break sequential execution sequence, resuming from a specified address, if a condition is met. The condition involves examining a specific bit in the status register.*/
+    case 0x90: BCC_90(); break;
+    case 0xB0: BCS_B0(); break;
+    case 0xF0: BEQ_F0(); break;
+    case 0x30: BMI_30(); break;
+    case 0xD0: BNE_D0(); break;
+    case 0x10: BPL_10(); break;
+    case 0x50: BVC_50(); break;
+    case 0x70: BVS_70(); break;
+
+    /* Status Register Operations: Set or clear a flag in the status register. */
+    case 0x18: CLC_18(); break;
+    case 0xD8: CLD_D8(); break;
+    case 0x58: CLI_58(); break;
+    case 0xB8: CLV_B8(); break;
+    case 0x38: SEC_38(); break;
+    case 0xF8: SED_F8(); break;
+    case 0x78: SEI_78(); break;
+
+    /* System Functions: Perform rarely used functions. */
+    case 0xEA: NOP_EA(); break;
+    case 0x40: RTI_40(); break;
+    case 0x00: BRK_00(); break;
+  }
+}
+
+void Cpu::Reset()
 {
   /* Reset flags */
   C = false; // Bit 0
@@ -389,7 +628,7 @@ void Cpu::LDY_BC() // Absolute X Indexing, 4 cycles, + 1 if a page is crossed
 
   // If page crossed, 1 more cycle
   if (previousState != (PC & 0xFF00))
-      cycleCount++;
+    cycleCount++;
 }
 
 void Cpu::LDY_A4() // Zero page, 3 cycles
@@ -643,7 +882,7 @@ void Cpu::AND_3D() // Absolute X Indexing, 4 cycles, + 1 if a page is crossed
 
   // If page crossed, 1 more cycle
   if (previousState != (PC & 0xFF00))
-      cycleCount++;
+    cycleCount++;
 }
 
 void Cpu::AND_39() // Absolute Y Indexing, 4 cycles, + 1 if a page is crossed
@@ -657,7 +896,7 @@ void Cpu::AND_39() // Absolute Y Indexing, 4 cycles, + 1 if a page is crossed
 
   // If page crossed, 1 more cycle
   if (previousState != (PC & 0xFF00))
-      cycleCount++;
+    cycleCount++;
 }
 
 void Cpu::AND_25() // Zero page, 3 cycles
